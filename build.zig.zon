@@ -1,0 +1,19 @@
+.{
+    .name = "berili",
+    .version = "0.0.0",
+    .dependencies = .{
+        .limine = .{
+            .url = "git+https://github.com/limine-bootloader/limine?ref=v8.x-binary#e9064643b7b4e3020a7e9fa4e2d380c0f34718a7",
+            .hash = "1220691d9f8b2dfbc5e2727e3400d983b88db37ad7b2468735932ec12b37d304c90e",
+        },
+        .edk2 = .{
+            .url = "git+https://github.com/retrage/edk2-nightly#bff77c2f82a0593f8897200374f40b02cbaf2ced",
+            .hash = "122067ba6263d1f22aedd4e294df89f5084649a28f26a1d4edc36f8d74cb053fdc86",
+        },
+        .@"limine-zig" = .{
+            .url = "git+https://github.com/48cf/limine-zig#7b29b6e6f6d35052f01ed3831085a39aae131705",
+            .hash = "1220f946f839eab2ec49dca1c805ce72ac3e3ef9c47b3afcdecd1c05a7b35f66d277",
+        },
+    },
+    .paths = .{""},
+}
