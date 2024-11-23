@@ -3,6 +3,7 @@ const limine = @import("limine");
 const cpu = @import("cpu.zig");
 const paging = @import("paging.zig");
 const gdt = @import("gdt.zig");
+const idt = @import("idt.zig");
 const apic = @import("apic.zig");
 
 pub inline fn hcf() noreturn {
@@ -35,6 +36,7 @@ pub fn initCoreEarly() void {
 
 pub fn initCore() void {
     gdt.init();
+    idt.init();
     apic.init();
 }
 

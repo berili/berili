@@ -115,6 +115,12 @@ pub const lapic = struct {
     pub fn eoi() void {
         write(.eoi, 0);
     }
+
+    pub fn timer(vector: u8, ticks: u32) void {
+        lapic.write(.lvt_timer, @as(u32, vector) | 0x20000);
+        lapic.write(.divide_configuration, 1);
+        lapic.write(.initial_count, ticks);
+    }
 };
 
 // TODO: Rename to initLapic?

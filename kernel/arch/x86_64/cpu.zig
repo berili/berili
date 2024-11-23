@@ -1,4 +1,5 @@
 const gdt = @import("gdt.zig");
+const idt = @import("idt.zig");
 
 pub inline fn hlt() void {
     asm volatile ("hlt");
@@ -19,6 +20,22 @@ pub inline fn invlpg(addr: [*]u8) void {
         : "memory"
     );
 }
+
+pub const cr2 = struct {
+    pub inline fn write(value: usize) void {
+        asm volatile ("mov %[value], %cr2"
+            :
+            : [value] "r" (value),
+            : "memory"
+        );
+    }
+
+    pub inline fn read() usize {
+        return asm volatile ("mov %cr2, %[res]"
+            : [res] "=r" (-> usize),
+        );
+    }
+};
 
 pub const cr3 = struct {
     pub inline fn write(value: usize) void {
@@ -76,6 +93,14 @@ pub fn lgdt(gdtd: *volatile gdt.Gdtd) void {
     asm volatile ("lgdt (%rax)"
         :
         : [gdtd] "{rax}" (gdtd),
+        : "memory"
+    );
+}
+
+pub fn lidt(idtd: *volatile idt.Idtd) void {
+    asm volatile ("lidt (%rax)"
+        :
+        : [idtd] "{rax}" (idtd),
         : "memory"
     );
 }

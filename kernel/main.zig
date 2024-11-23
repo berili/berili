@@ -58,6 +58,8 @@ fn coreStart(core_id: usize) noreturn {
 
     hal.initCore();
 
+    hal.enableInterrupts();
+
     std.log.info("Halting core", .{});
     hal.hcf();
 }
