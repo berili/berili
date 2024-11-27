@@ -36,3 +36,20 @@ pub fn mapPage(map: Map, phys: pmm.PhysAddr, virt: [*]u8, options: MapPageOption
 
 pub const mapHigherHalf = hal.mapHigherHalf;
 pub const setActive = hal.setActiveMap;
+pub const getActive = hal.getActiveMap;
+
+/// A thin wrapper around the physical memory allocator, that uses HHDM
+pub const hhdm_allocator: std.mem.Allocator = .{
+    .ptr = undefined,
+    .vtable = &.{
+        .alloc = struct {
+            fn f(_: *anyopaque, len: usize, ptr_align: u8, _: usize) ?[*]u8 {
+                if (ptr_align > std.math.log2(std.mem.page_size)) return null;
+                const page_count = std.mem.alignForward(usize, len, std.mem.page_size);
+                return virtFromPhys(pmm.alloc(page_count));
+            }
+        }.f,
+        .resize = std.mem.Allocator.noResize,
+        .free = std.mem.Allocator.noFree,
+    },
+};

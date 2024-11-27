@@ -17,9 +17,14 @@ pub const PagingMap = struct {
 
         const alloc = pmm.alloc(1);
         @memset(paging.virtFromPhys(alloc)[0..std.mem.page_size], 0);
-        return .{
+
+        const map: PagingMap = .{
             .page_table_phys = alloc,
         };
+
+        mapHigherHalf(map);
+
+        return map;
     }
 
     pub fn deinit(paging_map: PagingMap) void {
@@ -161,4 +166,10 @@ pub fn mapHigherHalf(map: paging.Map) void {
 
 pub fn setActive(map: paging.Map) void {
     cpu.cr3.write(@intFromEnum(map.page_table_phys));
+}
+
+pub fn getActive() paging.Map {
+    return .{
+        .page_table_phys = @enumFromInt(cpu.cr3.read()),
+    };
 }

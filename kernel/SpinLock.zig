@@ -1,38 +1,22 @@
 const std = @import("std");
-const hal = @import("root").hal;
 
 const SpinLock = @This();
 
-data: std.atomic.Value(u32) = .{ .raw = 0 },
-refcount: std.atomic.Value(usize) = .{ .raw = 0 },
-interrupts_enabled: bool = false,
+// TODO: Store thread ID and detect deadlocks
+locked: u32 = 0,
 
 pub fn lock(spin_lock: *SpinLock) void {
-    _ = spin_lock.refcount.fetchAdd(1, .monotonic);
-
-    const interrupts_enabled = hal.interruptsEnabled();
-
-    hal.disableInterrupts();
-
-    while (true) {
-        if (spin_lock.data.swap(1, .acquire) == 0) {
-            break;
-        }
-
-        while (spin_lock.data.fetchAdd(0, .monotonic) != 0) {
-            if (interrupts_enabled) hal.enableInterrupts();
-            std.atomic.spinLoopHint();
-            hal.disableInterrupts();
-        }
+    while (@cmpxchgWeak(u32, &spin_lock.locked, 0, 1, .seq_cst, .seq_cst) != null) {
+        std.atomic.spinLoopHint();
     }
-
-    _ = spin_lock.refcount.fetchSub(1, .monotonic);
-    @fence(.acquire);
-    spin_lock.interrupts_enabled = interrupts_enabled;
 }
 
 pub fn unlock(spin_lock: *SpinLock) void {
-    spin_lock.data.store(0, .release);
-    @fence(.release);
-    if (spin_lock.interrupts_enabled) hal.enableInterrupts();
+    if (@cmpxchgStrong(u32, &spin_lock.locked, 1, 0, .seq_cst, .seq_cst) != null) {
+        @panic("Tried to unlock non-locked spinlock");
+    }
+}
+
+pub fn forceUnlock(spin_lock: *SpinLock) void {
+    if (@cmpxchgStrong(u32, &spin_lock.locked, 1, 0, .seq_cst, .seq_cst) != null) {}
 }

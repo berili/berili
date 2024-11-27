@@ -5,6 +5,7 @@ const paging = @import("paging.zig");
 const gdt = @import("gdt.zig");
 const idt = @import("idt.zig");
 const apic = @import("apic.zig");
+const scheduler = @import("../../scheduler.zig");
 
 pub inline fn hcf() noreturn {
     while (true) {
@@ -29,6 +30,7 @@ pub const mapHigherHalf = paging.mapHigherHalf;
 pub const PagingMap = paging.PagingMap;
 pub const initPaging = paging.init;
 pub const setActiveMap = paging.setActive;
+pub const getActiveMap = paging.getActive;
 
 pub fn initCoreEarly() void {
     disableInterrupts();
@@ -88,3 +90,26 @@ pub const CoreInfo = struct {
         return @as(*allowzero addrspace(.gs) volatile CoreInfo, @ptrFromInt(0)).*;
     }
 };
+
+pub const InterruptFrame = idt.InterruptFrame;
+
+pub fn initThread(thread: *scheduler.Thread, start: *const fn () noreturn, stack: [*]u8) void {
+    thread.* = .{
+        .registers = std.mem.zeroes(InterruptFrame),
+        .paging_map = PagingMap.init(),
+    };
+    thread.registers.es = gdt.selectors.kdata_64;
+    thread.registers.ds = gdt.selectors.kdata_64;
+    thread.registers.iret.ss = gdt.selectors.kdata_64;
+    thread.registers.iret.cs = gdt.selectors.kcode_64;
+    thread.registers.iret.rip = @intFromPtr(start);
+    thread.registers.iret.rsp = std.mem.alignBackward(usize, @intFromPtr(stack), 16);
+    thread.registers.iret.rflags = std.mem.zeroInit(cpu.Rflags, .{});
+    thread.registers.iret.rflags.@"if" = true;
+}
+
+pub fn timer(handler: *const fn (frame: *InterruptFrame) void, ticks: u32) void {
+    std.debug.assert(idt.timer_irq == null);
+    idt.timer_irq = handler;
+    apic.lapic.timer(32, ticks);
+}

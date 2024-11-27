@@ -1,4 +1,5 @@
 const std = @import("std");
+const hal = @import("root").hal;
 const SpinLock = @import("SpinLock.zig");
 
 var last_newline: bool = false;
@@ -36,6 +37,7 @@ pub const Writer = struct {
 };
 
 fn putc(char: u8) void {
+    // TODO: Abstract this
     asm volatile (
         \\outb %al, $0xE9
         :
@@ -55,4 +57,30 @@ pub fn logFn(comptime level: std.log.Level, comptime scope: @Type(.EnumLiteral),
     defer spin_lock.unlock();
     last_newline = false;
     std.fmt.format(writer, prefix ++ fmt ++ "\n", args) catch unreachable;
+}
+
+var panic_panic = false;
+pub fn panic(msg: []const u8, _: ?*std.builtin.StackTrace, ret_addr: ?usize) noreturn {
+    @setCold(true);
+    hal.disableInterrupts();
+
+    if (panic_panic) {
+        // Nested panic! Oh no!
+        for ("Panic panic: ") |c| {
+            putc(c);
+        }
+        for (msg) |c| {
+            putc(c);
+        }
+        putc('\n');
+    } else {
+        panic_panic = true;
+        spin_lock.forceUnlock();
+        std.log.err(
+            \\PANIC: {s}
+            \\Panicked at 0x{x}
+        , .{ msg, ret_addr orelse @returnAddress() });
+    }
+
+    hal.hcf();
 }

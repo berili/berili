@@ -86,6 +86,12 @@ pub fn build(b: *std.Build) !void {
         run_cmd.addArg("int");
     }
 
+    if (b.option(bool, "qemu_gdb", "Enable debugging via GDB in QEMU") orelse false) {
+        run_cmd.addArg("-s");
+        run_cmd.addArg("-S");
+        run_cmd.step.dependOn(kernel_step);
+    }
+
     run_cmd.addArg("-smp");
     run_cmd.addArg(b.fmt("{d}", .{b.option(usize, "smp", "Number of SMP cores to use") orelse 2}));
 

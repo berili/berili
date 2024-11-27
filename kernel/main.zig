@@ -4,6 +4,7 @@ const limine = @import("limine");
 const debug = @import("debug.zig");
 const pmm = @import("pmm.zig");
 const paging = @import("paging.zig");
+const scheduler = @import("scheduler.zig");
 
 pub const hal = switch (builtin.cpu.arch) {
     .x86_64 => @import("arch/x86_64/hal.zig"),
@@ -25,20 +26,13 @@ const limine_requests = struct {
     export var smp: limine.SmpRequest = .{};
 };
 
-pub fn panic(msg: []const u8, _: ?*std.builtin.StackTrace, ret_addr: ?usize) noreturn {
-    @setCold(true);
-    std.log.err(
-        \\PANIC: {s}
-        \\Panicked at 0x{x}
-    , .{ msg, ret_addr orelse @returnAddress() });
-    hal.hcf();
-}
-
 export fn _start() callconv(.C) noreturn {
     // TODO: Check base revision
 
     hal.startAllCores(limine_requests.smp, coreStart);
 }
+
+pub const panic = debug.panic;
 
 var mem_init_done: std.atomic.Value(bool) = .{ .raw = false };
 
@@ -60,6 +54,5 @@ fn coreStart(core_id: usize) noreturn {
 
     hal.enableInterrupts();
 
-    std.log.info("Halting core", .{});
-    hal.hcf();
+    scheduler.start();
 }

@@ -164,7 +164,7 @@ pub fn init() void {
 
 export fn interruptCommon() callconv(.Naked) noreturn {
     asm volatile (
-        \\testb $0x03, 0x10(%rsp)
+        \\cmpq %[kcode], 0x18(%rsp)
         \\je 1f
         \\swapgs
         \\1:
@@ -219,14 +219,13 @@ export fn interruptCommon() callconv(.Naked) noreturn {
         \\pop %rbx
         \\pop %rax
         \\
-        \\add $8, %rsp
+        \\add $16, %rsp
         \\
-        \\testb $0x03, 0x10(%rsp)
+        \\cmpq %[kcode], 0x8(%rsp)
         \\je 1f
         \\swapgs
         \\1:
         \\
-        \\add $8, %rsp
         \\iretq
         :
         : [kcode] "i" (gdt.selectors.kcode_64),
@@ -234,16 +233,16 @@ export fn interruptCommon() callconv(.Naked) noreturn {
     );
 }
 
-const IretFrame = packed struct(u384) {
+const IretFrame = extern struct {
     err: u64,
     rip: u64,
     cs: u64,
-    rflags: u64,
+    rflags: cpu.Rflags,
     rsp: u64,
     ss: u64,
 };
 
-const InterruptFrame = packed struct {
+pub const InterruptFrame = extern struct {
     es: u64,
     ds: u64,
     r15: u64,
@@ -265,8 +264,11 @@ const InterruptFrame = packed struct {
     iret: IretFrame,
 };
 
+pub var timer_irq: ?*const fn (frame: *InterruptFrame) void = null;
+
 export fn interruptHandler(frame: *InterruptFrame) callconv(.C) void {
     switch (frame.vector) {
+        // TODO: Handle invalid exceptions
         inline 0, 1, 3...8, 10...14, 16...21 => |exception_i| {
             const exception: Exception = @enumFromInt(exception_i);
             log.debug("Exception {x:0>2} {s}: {s}", .{ exception_i, exception.mnemonic(), exception.description() });
@@ -287,8 +289,10 @@ export fn interruptHandler(frame: *InterruptFrame) callconv(.C) void {
             cpu.hlt();
         },
         else => {
-            log.debug("Interrupt {d}", .{frame.vector});
-            // TODO: Check if it's an IRQ
+            switch (frame.vector) {
+                32 => if (timer_irq) |irq| irq(frame), // TODO: Don't hardcode this
+                else => log.debug("Unhandled IRQ {d}", .{frame.vector}),
+            }
             apic.lapic.eoi();
         },
     }
